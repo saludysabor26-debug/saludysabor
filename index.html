@@ -841,16 +841,19 @@ function App() {
   const [inventory,setInventory]=useState(Object.fromEntries(PRODUCTS_DEFAULT.map(p=>[p.id,0])));
   const [clients,setClients]=useState([]); const [orders,setOrders]=useState([]);
   const [currentMonth,setCurrentMonth]=useState(mKey()); const [loaded,setLoaded]=useState(false);
+  const fromRemote = React.useRef(false);
 
   useEffect(()=>{(async()=>{
     const [pr,inv,cl,or]=await Promise.all([db.get("ss4:products"),db.get("ss4:inventory"),db.get("ss4:clients"),db.get("ss4:orders")]);
+    fromRemote.current=true;
     if(pr)setProducts(pr); if(inv)setInventory(inv); if(cl)setClients(cl); if(or)setOrders(or);
+    setTimeout(()=>{fromRemote.current=false;},100);
     setLoaded(true);
   })();},[]);
-  useEffect(()=>{if(loaded)db.set("ss4:products",products);},[products,loaded]);
-  useEffect(()=>{if(loaded)db.set("ss4:inventory",inventory);},[inventory,loaded]);
-  useEffect(()=>{if(loaded)db.set("ss4:clients",clients);},[clients,loaded]);
-  useEffect(()=>{if(loaded)db.set("ss4:orders",orders);},[orders,loaded]);
+  useEffect(()=>{if(loaded&&!fromRemote.current)db.set("ss4:products",products);},[products,loaded]);
+  useEffect(()=>{if(loaded&&!fromRemote.current)db.set("ss4:inventory",inventory);},[inventory,loaded]);
+  useEffect(()=>{if(loaded&&!fromRemote.current)db.set("ss4:clients",clients);},[clients,loaded]);
+  useEffect(()=>{if(loaded&&!fromRemote.current)db.set("ss4:orders",orders);},[orders,loaded]);
 
   // ── REALTIME: sync entre dispositivos ──────────────────────
   useEffect(()=>{
@@ -858,11 +861,13 @@ function App() {
     const ch = supa.channel('ss_sync')
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'ss_data'},
         async ({new:row})=>{
+          fromRemote.current=true;
           const v = row.value;
           if(row.key==="ss4:products")  setProducts(v);
           if(row.key==="ss4:inventory") setInventory(v);
           if(row.key==="ss4:clients")   setClients(v);
           if(row.key==="ss4:orders")    setOrders(v);
+          setTimeout(()=>{fromRemote.current=false;},100);
         })
       .subscribe();
     return () => supa.removeChannel(ch);
