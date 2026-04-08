@@ -91,15 +91,15 @@ const Logo = ({size=36}) => (
 
 // ── CONSTANTS ─────────────────────────────────────────────────
 const PRODUCTS_DEFAULT = [
-  { id:"arepa-queso",   name:"Arepa de Queso",          emoji:"🧀", price:14000, active:true },
-  { id:"arepa-anis",    name:"Arepa de Anís",            emoji:"🌾", price:14000, active:true },
-  { id:"emp-queso",     name:"Empanada de Queso",        emoji:"🫓", price:14000, active:true },
-  { id:"emp-carne",     name:"Empanada de Carne",        emoji:"🥩", price:14000, active:true },
-  { id:"emp-pollo",     name:"Empanada de Pollo",        emoji:"🍗", price:14000, active:true },
+  { id:"arepa-queso",   name:"Arepa de Queso",          emoji:"🫓", price:14000, active:true },
+  { id:"arepa-anis",    name:"Arepa de Anís",            emoji:"🫓", price:14000, active:true },
+  { id:"emp-queso",     name:"Empanada de Queso",        emoji:"🥟", price:14000, active:true },
+  { id:"emp-carne",     name:"Empanada de Carne",        emoji:"🥟", price:14000, active:true },
+  { id:"emp-pollo",     name:"Empanada de Pollo",        emoji:"🥟", price:14000, active:true },
   { id:"burg-garbanzo", name:"Hamburguesa de Garbanzo",  emoji:"🍔", price:14000, active:true },
-  { id:"burg-lenteja",  name:"Hamburguesa de Lenteja",   emoji:"🥙", price:14000, active:true },
+  { id:"burg-lenteja",  name:"Hamburguesa de Lenteja",   emoji:"🍔", price:14000, active:true },
 ];
-const EMOJI_LIST = ["🥗","🧀","🌾","🫓","🥩","🍗","🍔","🥦","🍅","🌽","🫘","🥕","🍞","🥑","🍳","🌮","🥙","🥪","🍰","🍩","🍪","🥤","☕","🧃","🥗","🌿","🫑","🧆","🥚","🍋"];
+const EMOJI_LIST = ["🫓","🥟","🍔","🌮","🥪","🍗","🥩","🧀","🌽","🥑","🍳","🥗","🍲","🥘","🫘","🥦","🍅","🥕","🍞","🥙","🧆","🥤","☕","🧃","🍰","🍪","🥚","🌿","🫑","🍋"];
 const USERS = [
   { email:"mariacecilia@saludysabor.com", name:"María Cecilia", pass:"maria2024", color:"#7DC241", initials:"MC" },
   { email:"maricet@saludysabor.com",      name:"Maricet",       pass:"maricet2024", color:"#5A9A2E", initials:"MR" },
@@ -246,10 +246,6 @@ function Login({onLogin}) {
         </div>
         {err&&<div style={{color:G.danger,fontSize:"0.78rem",marginBottom:"0.8rem",textAlign:"center",fontWeight:600,background:G.dangerBg,padding:"0.5rem",borderRadius:8}}>{err}</div>}
         <Btn onClick={go} full disabled={!email||!pass} color={G.primary}>Ingresar →</Btn>
-        <div style={{marginTop:"1.2rem",padding:"0.85rem",background:G.primaryLight,borderRadius:12,fontSize:"0.7rem",color:G.sub,border:`1px solid ${G.primaryMid}`}}>
-          <div style={{fontWeight:700,marginBottom:4,color:G.primaryDark}}>👥 Usuarios:</div>
-          {USERS.map(u=><div key={u.email} style={{marginBottom:2}}><b>{u.name}:</b> {u.pass}</div>)}
-        </div>
       </div>
     </div>
   );
@@ -834,6 +830,44 @@ function BNav({screen,setScreen,orders}) {
   );
 }
 
+// ── PERFIL (Cambiar contraseña) ─────────────────────────────
+function Perfil({user}) {
+  const [cur,setCur]=useState(""); const [nw,setNw]=useState(""); const [nw2,setNw2]=useState("");
+  const [msg,setMsg]=useState(""); const [err,setErr]=useState("");
+  const change=()=>{
+    setMsg(""); setErr("");
+    if(cur!==user.pass) return setErr("Contraseña actual incorrecta");
+    if(nw.length<4) return setErr("La nueva contraseña debe tener al menos 4 caracteres");
+    if(nw!==nw2) return setErr("Las contraseñas no coinciden");
+    const idx=USERS.findIndex(u=>u.email===user.email);
+    if(idx>=0) USERS[idx].pass=nw;
+    user.pass=nw;
+    setCur(""); setNw(""); setNw2("");
+    setMsg("Contraseña actualizada correctamente");
+  };
+  return(
+    <div>
+      <h2 style={{fontSize:"1.15rem",fontWeight:900,color:G.text,marginBottom:"1.2rem"}}>👤 Mi Perfil</h2>
+      <Card>
+        <div style={{display:"flex",alignItems:"center",gap:"1rem",marginBottom:"1.5rem"}}>
+          <div style={{width:56,height:56,borderRadius:"50%",background:user.color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:800,fontSize:"1.3rem"}}>{user.initials}</div>
+          <div>
+            <div style={{fontWeight:800,fontSize:"1rem",color:G.text}}>{user.name}</div>
+            <div style={{fontSize:"0.75rem",color:G.sub}}>{user.email}</div>
+          </div>
+        </div>
+        <div style={{fontWeight:700,fontSize:"0.85rem",color:G.text,marginBottom:"0.8rem"}}>Cambiar contraseña</div>
+        <div style={{marginBottom:"0.7rem"}}><label style={{fontSize:"0.7rem",fontWeight:700,color:G.sub,textTransform:"uppercase",letterSpacing:0.5,display:"block",marginBottom:4}}>Contraseña actual</label><input type="password" value={cur} onChange={e=>setCur(e.target.value)} style={{width:"100%",padding:"0.65rem 0.85rem",border:`1.5px solid ${G.border}`,borderRadius:12,fontSize:"0.88rem",outline:"none"}}/></div>
+        <div style={{marginBottom:"0.7rem"}}><label style={{fontSize:"0.7rem",fontWeight:700,color:G.sub,textTransform:"uppercase",letterSpacing:0.5,display:"block",marginBottom:4}}>Nueva contraseña</label><input type="password" value={nw} onChange={e=>setNw(e.target.value)} style={{width:"100%",padding:"0.65rem 0.85rem",border:`1.5px solid ${G.border}`,borderRadius:12,fontSize:"0.88rem",outline:"none"}}/></div>
+        <div style={{marginBottom:"0.7rem"}}><label style={{fontSize:"0.7rem",fontWeight:700,color:G.sub,textTransform:"uppercase",letterSpacing:0.5,display:"block",marginBottom:4}}>Confirmar nueva contraseña</label><input type="password" value={nw2} onChange={e=>setNw2(e.target.value)} style={{width:"100%",padding:"0.65rem 0.85rem",border:`1.5px solid ${G.border}`,borderRadius:12,fontSize:"0.88rem",outline:"none"}}/></div>
+        {err&&<div style={{color:G.danger,fontSize:"0.78rem",marginBottom:"0.5rem",fontWeight:600,background:G.dangerBg,padding:"0.5rem",borderRadius:8}}>{err}</div>}
+        {msg&&<div style={{color:G.success,fontSize:"0.78rem",marginBottom:"0.5rem",fontWeight:600,background:G.successBg,padding:"0.5rem",borderRadius:8}}>{msg}</div>}
+        <Btn onClick={change} full color={G.primary}>Guardar contraseña</Btn>
+      </Card>
+    </div>
+  );
+}
+
 // ── ROOT ──────────────────────────────────────────────────────
 function App() {
   const [user,setUser]=useState(null); const [screen,setScreen]=useState("dashboard");
@@ -841,37 +875,18 @@ function App() {
   const [inventory,setInventory]=useState(Object.fromEntries(PRODUCTS_DEFAULT.map(p=>[p.id,0])));
   const [clients,setClients]=useState([]); const [orders,setOrders]=useState([]);
   const [currentMonth,setCurrentMonth]=useState(mKey()); const [loaded,setLoaded]=useState(false);
-  const fromRemote = React.useRef(false);
+  const initDone = React.useRef(false);
 
   useEffect(()=>{(async()=>{
     const [pr,inv,cl,or]=await Promise.all([db.get("ss4:products"),db.get("ss4:inventory"),db.get("ss4:clients"),db.get("ss4:orders")]);
-    fromRemote.current=true;
     if(pr)setProducts(pr); if(inv)setInventory(inv); if(cl)setClients(cl); if(or)setOrders(or);
-    setTimeout(()=>{fromRemote.current=false;},100);
     setLoaded(true);
+    setTimeout(()=>{initDone.current=true;},500);
   })();},[]);
-  useEffect(()=>{if(loaded&&!fromRemote.current)db.set("ss4:products",products);},[products,loaded]);
-  useEffect(()=>{if(loaded&&!fromRemote.current)db.set("ss4:inventory",inventory);},[inventory,loaded]);
-  useEffect(()=>{if(loaded&&!fromRemote.current)db.set("ss4:clients",clients);},[clients,loaded]);
-  useEffect(()=>{if(loaded&&!fromRemote.current)db.set("ss4:orders",orders);},[orders,loaded]);
-
-  // ── REALTIME: sync entre dispositivos ──────────────────────
-  useEffect(()=>{
-    if(!loaded) return;
-    const ch = supa.channel('ss_sync')
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'ss_data'},
-        async ({new:row})=>{
-          fromRemote.current=true;
-          const v = row.value;
-          if(row.key==="ss4:products")  setProducts(v);
-          if(row.key==="ss4:inventory") setInventory(v);
-          if(row.key==="ss4:clients")   setClients(v);
-          if(row.key==="ss4:orders")    setOrders(v);
-          setTimeout(()=>{fromRemote.current=false;},100);
-        })
-      .subscribe();
-    return () => supa.removeChannel(ch);
-  },[loaded]);
+  useEffect(()=>{if(initDone.current)db.set("ss4:products",products);},[products]);
+  useEffect(()=>{if(initDone.current)db.set("ss4:inventory",inventory);},[inventory]);
+  useEffect(()=>{if(initDone.current)db.set("ss4:clients",clients);},[clients]);
+  useEffect(()=>{if(initDone.current)db.set("ss4:orders",orders);},[orders]);
 
   if(!loaded)return(
     <div style={{display:"flex",height:"100vh",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:"0.75rem",background:G.primaryLight}}>
@@ -894,11 +909,12 @@ function App() {
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:"0.65rem"}}>
-          <div style={{width:32,height:32,borderRadius:"50%",background:user.color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:800,fontSize:"0.8rem",boxShadow:`0 2px 6px ${user.color}66`}}>{user.initials}</div>
+          <button onClick={()=>setScreen("perfil")} style={{width:32,height:32,borderRadius:"50%",background:user.color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:800,fontSize:"0.8rem",boxShadow:`0 2px 6px ${user.color}66`,border:"none",cursor:"pointer"}}>{user.initials}</button>
           <button onClick={()=>{setUser(null);setScreen("dashboard");}} style={{background:"none",border:`1.5px solid ${G.border}`,color:G.sub,borderRadius:20,padding:"0.28rem 0.8rem",cursor:"pointer",fontSize:"0.72rem",fontFamily:"inherit",fontWeight:600}}>Salir</button>
         </div>
       </div>
       <div style={{padding:"1rem",maxWidth:600,margin:"0 auto"}}>
+        {screen==="perfil"    &&<Perfil user={user}/>}
         {screen==="dashboard" &&<Dashboard inventory={inventory} orders={orders} clients={clients} products={products}/>}
         {screen==="inventario"&&<Inventario {...props}/>}
         {screen==="clientes"  &&<Clientes   {...props}/>}
