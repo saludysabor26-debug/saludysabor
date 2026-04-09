@@ -518,6 +518,8 @@ function Pedidos({clients,setClients,orders,setOrders,inventory,setInventory,pro
   };
   const deliver=oid=>{
     const o=orders.find(x=>x.id===oid);if(!o)return;
+    const missing=o.items.filter(({productId,packs})=>(inventory[productId]||0)<packs);
+    if(missing.length>0){const names=missing.map(m=>{const p=products.find(x=>x.id===m.productId);return(p?.name||m.productId)+" (necesita "+m.packs+", tiene "+(inventory[m.productId]||0)+")";}).join("\n");return alert("Stock insuficiente:\n"+names+"\n\nRegistra stock primero.");}
     const ni={...inventory};o.items.forEach(({productId,packs})=>{ni[productId]=Math.max(0,(ni[productId]||0)-packs);});
     setInventory(ni);setOrders(p=>p.map(x=>x.id===oid?{...x,status:"delivered",deliveredAt:today()}:x));
   };
@@ -646,14 +648,14 @@ function Cobros({orders,setOrders,clients,products,currentMonth,setCurrentMonth}
     const tot=cos.reduce((a,o)=>a+o.total,0);
     const greeting=rMsg(cl?.name||"");
     const lines=[greeting+"\n",
-      `📅 *Período: ${mLbl(currentMonth)}*\n`,
-      ...cos.flatMap(o=>[`📦 Entrega: ${o.deliveryDate}`,...o.items.map(it=>{
+      "\uD83D\uDCC5 *Per\u00EDodo: "+mLbl(currentMonth)+"*\n",
+      ...cos.flatMap(o=>["\uD83D\uDCE6 Entrega: "+o.deliveryDate,...o.items.map(it=>{
         const p=products.find(x=>x.id===it.productId);
-        return `  ${p?.emoji} ${p?.name}: ${it.packs} paq × ${fmt(it.packs*(p?.price||0))}`;
+        return "  \u2022 "+(p?.name||"Producto")+": "+it.packs+" paq \u00D7 "+fmt(it.packs*(p?.price||0));
       })]),
-      `\n💰 *Total a pagar: ${fmt(tot)}*`,
-      `\n✅ Escanea el QR adjunto para pagar (Nequi / Bancolombia / A la mano) 🙏`,
-      `\n_Salud & Sabor by María C._ 🌿`];
+      "\n\uD83D\uDCB0 *Total a pagar: "+fmt(tot)+"*",
+      "\n\u2705 Escanea el QR adjunto para pagar (Nequi / Bancolombia / A la mano) \uD83D\uDE4F",
+      "\n_Salud & Sabor by Mar\u00EDa C._ \uD83C\uDF3F"];
     const msg=lines.join("\n");
     setWaModal({cid, cos, tot, msg, cl});
   };
@@ -875,18 +877,18 @@ function App() {
   const [inventory,setInventory]=useState(Object.fromEntries(PRODUCTS_DEFAULT.map(p=>[p.id,0])));
   const [clients,setClients]=useState([]); const [orders,setOrders]=useState([]);
   const [currentMonth,setCurrentMonth]=useState(mKey()); const [loaded,setLoaded]=useState(false);
-  const initDone = React.useRef(false);
+  const saveCount = React.useRef(0);
 
   useEffect(()=>{(async()=>{
     const [pr,inv,cl,or]=await Promise.all([db.get("ss4:products"),db.get("ss4:inventory"),db.get("ss4:clients"),db.get("ss4:orders")]);
     if(pr)setProducts(pr); if(inv)setInventory(inv); if(cl)setClients(cl); if(or)setOrders(or);
     setLoaded(true);
-    setTimeout(()=>{initDone.current=true;},500);
+    setTimeout(()=>{saveCount.current=1;},300);
   })();},[]);
-  useEffect(()=>{if(initDone.current)db.set("ss4:products",products);},[products]);
-  useEffect(()=>{if(initDone.current)db.set("ss4:inventory",inventory);},[inventory]);
-  useEffect(()=>{if(initDone.current)db.set("ss4:clients",clients);},[clients]);
-  useEffect(()=>{if(initDone.current)db.set("ss4:orders",orders);},[orders]);
+  useEffect(()=>{if(saveCount.current>0)db.set("ss4:products",products);},[products]);
+  useEffect(()=>{if(saveCount.current>0)db.set("ss4:inventory",inventory);},[inventory]);
+  useEffect(()=>{if(saveCount.current>0)db.set("ss4:clients",clients);},[clients]);
+  useEffect(()=>{if(saveCount.current>0)db.set("ss4:orders",orders);},[orders]);
 
   if(!loaded)return(
     <div style={{display:"flex",height:"100vh",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:"0.75rem",background:G.primaryLight}}>
