@@ -415,10 +415,14 @@ function Catalogo({products,setProducts}) {
 }
 
 // ── INVENTARIO ────────────────────────────────────────────────
-function Inventario({inventory,setInventory,products}) {
+function Inventario({inventory,setInventory,products,stockLog,setStockLog,user}) {
   const [local,setLocal]=useState({...inventory}); const [saved,setSaved]=useState(false);
   const ch=(id,d)=>{setLocal(p=>({...p,[id]:Math.max(0,(p[id]||0)+d)}));setSaved(false);};
-  const save=()=>{setInventory(local);setSaved(true);setTimeout(()=>setSaved(false),2200);};
+  const save=()=>{
+    const changes=Object.entries(local).filter(([id,q])=>q!==(inventory[id]||0)).map(([id,q])=>{const p=products.find(x=>x.id===id);return{product:p?.name||id,prev:inventory[id]||0,now:q,diff:q-(inventory[id]||0)};});
+    if(changes.length>0){const entry={id:uid(),date:today(),time:new Date().toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"}),user:user?.name||"?",changes};setStockLog(p=>[entry,...p]);}
+    setInventory(local);setSaved(true);setTimeout(()=>setSaved(false),2200);
+  };
   const active=products.filter(p=>p.active);
   const val=Object.entries(local).reduce((a,[id,q])=>{const p=products.find(x=>x.id===id);return a+q*(p?.price||0);},0);
   return (
@@ -452,6 +456,24 @@ function Inventario({inventory,setInventory,products}) {
         icon={saved?<IcoCheck s={16} c="white"/>:null}>
         {saved?"Inventario actualizado":"Guardar Inventario"}
       </Btn>
+      {stockLog.length>0&&(
+        <div style={{marginTop:"1.5rem"}}>
+          <div style={{fontWeight:800,fontSize:"0.9rem",color:G.text,marginBottom:"0.6rem"}}>📋 Historial de Stock</div>
+          {stockLog.slice(0,20).map(entry=>(
+            <Card key={entry.id} style={{padding:"0.7rem 0.9rem",marginBottom:"0.5rem"}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.3rem"}}>
+                <span style={{fontWeight:700,fontSize:"0.75rem",color:G.text}}>{entry.date} · {entry.time}</span>
+                <span style={{fontSize:"0.68rem",color:G.sub,background:G.primaryLight,padding:"0.1rem 0.5rem",borderRadius:8}}>{entry.user}</span>
+              </div>
+              {entry.changes.map((c,i)=>(
+                <div key={i} style={{fontSize:"0.72rem",color:c.diff>0?G.success:G.danger,paddingLeft:8}}>
+                  {c.diff>0?"+":""}{c.diff} {c.product} ({c.prev} → {c.now})
+                </div>
+              ))}
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -505,7 +527,7 @@ function Clientes({clients,setClients,orders}) {
 // ── PEDIDOS ───────────────────────────────────────────────────
 function Pedidos({clients,setClients,orders,setOrders,inventory,setInventory,products,currentMonth}) {
   const zI=()=>Object.fromEntries(products.filter(p=>p.active).map(p=>[p.id,0]));
-  const [tab,setTab]=useState("nuevo"); const [cid,setCid]=useState(""); const [dd,setDd]=useState(today()); const [items,setItems]=useState(zI());
+  const [tab,setTab]=useState("nuevo"); const [cid,setCid]=useState(""); const [dd,setDd]=useState(today()); const [items,setItems]=useState(zI()); const [asDelivered,setAsDelivered]=useState(false);
   const [showNewCl,setShowNewCl]=useState(false); const [newClName,setNewClName]=useState(""); const [newClPhone,setNewClPhone]=useState("");
   const total=Object.entries(items).reduce((a,[id,q])=>{const p=products.find(x=>x.id===id);return a+q*(p?.price||0);},0);
   const qty=(id,d)=>setItems(p=>({...p,[id]:Math.max(0,(p[id]||0)+d)}));
@@ -513,8 +535,10 @@ function Pedidos({clients,setClients,orders,setOrders,inventory,setInventory,pro
     if(!cid)return alert("Selecciona un cliente");
     const ls=Object.entries(items).filter(([,q])=>q>0).map(([productId,packs])=>{const p=products.find(x=>x.id===productId);return{productId,packs,unitPrice:p?.price||0};});
     if(ls.length===0)return alert("Agrega al menos un producto");
-    setOrders(p=>[{id:uid(),clientId:cid,items:ls,deliveryDate:dd,month:mKey(dd),status:"pending",total,paid:false,createdAt:today()},...p]);
-    setItems(zI());setCid("");setTab("pendientes");
+    const status=asDelivered?"delivered":"pending";
+    setOrders(p=>[{id:uid(),clientId:cid,items:ls,deliveryDate:dd,month:mKey(dd),status,total,paid:false,createdAt:today(),deliveredAt:asDelivered?dd:undefined},...p]);
+    if(asDelivered){const ni={...inventory};ls.forEach(({productId,packs})=>{ni[productId]=Math.max(0,(ni[productId]||0)-packs);});setInventory(ni);}
+    setItems(zI());setCid("");setAsDelivered(false);setTab(asDelivered?"entregados":"pendientes");
   };
   const deliver=oid=>{
     const o=orders.find(x=>x.id===oid);if(!o)return;
@@ -523,6 +547,7 @@ function Pedidos({clients,setClients,orders,setOrders,inventory,setInventory,pro
     const ni={...inventory};o.items.forEach(({productId,packs})=>{ni[productId]=Math.max(0,(ni[productId]||0)-packs);});
     setInventory(ni);setOrders(p=>p.map(x=>x.id===oid?{...x,status:"delivered",deliveredAt:today()}:x));
   };
+  const editOrder=(oid,newItems,newTotal)=>{setOrders(p=>p.map(x=>x.id===oid?{...x,items:newItems,total:newTotal}:x));};
   const cancel=oid=>{if(confirm("¿Cancelar pedido?"))setOrders(p=>p.map(x=>x.id===oid?{...x,status:"cancelled"}:x));};
   const pend=orders.filter(o=>o.status==="pending");
   const moDel=orders.filter(o=>o.status==="delivered"&&o.month===currentMonth);
@@ -581,12 +606,16 @@ function Pedidos({clients,setClients,orders,setOrders,inventory,setInventory,pro
               <span style={{fontWeight:900,fontSize:"1.4rem",color:G.warn}}>{fmt(total)}</span>
             </div>
           </Card>
+          <label style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.6rem 0",fontSize:"0.78rem",color:G.sub,cursor:"pointer"}}>
+            <input type="checkbox" checked={asDelivered} onChange={e=>setAsDelivered(e.target.checked)} style={{width:18,height:18,accentColor:G.primary}}/>
+            <span>Registrar como ya entregado <span style={{fontSize:"0.68rem",color:G.sub}}>(para datos históricos)</span></span>
+          </label>
           <Btn onClick={create} full disabled={total===0||!cid} color={G.primary}>Registrar Pedido →</Btn>
         </div>
       )}
       {tab==="pendientes"&&(
         pend.length===0?<Card><div style={{textAlign:"center",color:G.sub,padding:"1.5rem"}}><div style={{fontSize:"2rem"}}>🌿</div>Sin pedidos pendientes 🎉</div></Card>
-        :pend.map(o=><OrdCard key={o.id} o={o} clients={clients} products={products} onDeliver={()=>deliver(o.id)} onCancel={()=>cancel(o.id)} showActions/>)
+        :pend.map(o=><OrdCard key={o.id} o={o} clients={clients} products={products} onDeliver={()=>deliver(o.id)} onCancel={()=>cancel(o.id)} onEdit={editOrder} showActions/>)
       )}
       {tab==="entregados"&&(
         moDel.length===0?<Card><div style={{textAlign:"center",color:G.sub,padding:"1.5rem"}}><div style={{fontSize:"2rem"}}>🌱</div>Sin entregas en {mLbl(currentMonth)}</div></Card>
@@ -595,8 +624,16 @@ function Pedidos({clients,setClients,orders,setOrders,inventory,setInventory,pro
     </div>
   );
 }
-function OrdCard({o,clients,products,onDeliver,onCancel,showActions}) {
+function OrdCard({o,clients,products,onDeliver,onCancel,onEdit,showActions}) {
   const cl=clients.find(c=>c.id===o.clientId);
+  const [editing,setEditing]=useState(false);
+  const [eitems,setEitems]=useState(Object.fromEntries(o.items.map(it=>[it.productId,it.packs])));
+  const saveEdit=()=>{
+    const ls=Object.entries(eitems).filter(([,q])=>q>0).map(([productId,packs])=>{const p=products.find(x=>x.id===productId);return{productId,packs,unitPrice:p?.price||0};});
+    if(ls.length===0)return alert("Agrega al menos un producto");
+    const total=ls.reduce((a,it)=>a+it.packs*(products.find(x=>x.id===it.productId)?.price||0),0);
+    onEdit(o.id,ls,total);setEditing(false);
+  };
   return(
     <Card style={{padding:"0.85rem 1rem"}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.4rem"}}>
@@ -604,12 +641,28 @@ function OrdCard({o,clients,products,onDeliver,onCancel,showActions}) {
         <SBadge status={o.status} paid={o.paid}/>
       </div>
       <div style={{fontSize:"0.73rem",color:G.sub,marginBottom:"0.35rem",paddingLeft:44}}>📅 {o.deliveryDate} · 💰 {fmt(o.total)}</div>
-      <div style={{fontSize:"0.71rem",color:G.sub,marginBottom:showActions?"0.75rem":0,paddingLeft:44}}>
-        {o.items.map(it=>{const p=products.find(x=>x.id===it.productId);return `${p?.emoji} ${p?.name||it.productId} ×${it.packs}`;}).join(" · ")}
-      </div>
-      {showActions&&(
+      {!editing?(
+        <div style={{fontSize:"0.71rem",color:G.sub,marginBottom:showActions?"0.75rem":0,paddingLeft:44}}>
+          {o.items.map(it=>{const p=products.find(x=>x.id===it.productId);return `${p?.emoji} ${p?.name||it.productId} ×${it.packs}`;}).join(" · ")}
+        </div>
+      ):(
+        <div style={{paddingLeft:44,marginBottom:"0.75rem"}}>
+          {products.filter(p=>p.active).map(p=>(
+            <div key={p.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:4}}>
+              <span style={{fontSize:"0.75rem",flex:1}}>{p.emoji} {p.name}</span>
+              <Ctr value={eitems[p.id]||0} onInc={()=>setEitems(prev=>({...prev,[p.id]:(prev[p.id]||0)+1}))} onDec={()=>setEitems(prev=>({...prev,[p.id]:Math.max(0,(prev[p.id]||0)-1)}))}/>
+            </div>
+          ))}
+          <div style={{display:"flex",gap:"0.5rem",marginTop:"0.5rem"}}>
+            <Btn small onClick={saveEdit} color={G.primary}>Guardar cambios</Btn>
+            <Btn small outline color={G.sub} onClick={()=>setEditing(false)}>Cancelar</Btn>
+          </div>
+        </div>
+      )}
+      {showActions&&!editing&&(
         <div style={{display:"flex",gap:"0.5rem",paddingLeft:44}}>
           <Btn small onClick={onDeliver} color={G.success} icon={<IcoCheck s={13} c="white"/>}>Entregar</Btn>
+          <Btn small onClick={()=>setEditing(true)} color={G.warn}>Editar</Btn>
           <Btn small outline color={G.danger} onClick={onCancel}>Cancelar</Btn>
         </div>
       )}
@@ -875,13 +928,13 @@ function App() {
   const [user,setUser]=useState(null); const [screen,setScreen]=useState("dashboard");
   const [products,setProducts]=useState(PRODUCTS_DEFAULT);
   const [inventory,setInventory]=useState(Object.fromEntries(PRODUCTS_DEFAULT.map(p=>[p.id,0])));
-  const [clients,setClients]=useState([]); const [orders,setOrders]=useState([]);
+  const [clients,setClients]=useState([]); const [orders,setOrders]=useState([]); const [stockLog,setStockLog]=useState([]);
   const [currentMonth,setCurrentMonth]=useState(mKey()); const [loaded,setLoaded]=useState(false);
   const saveCount = React.useRef(0);
 
   useEffect(()=>{(async()=>{
-    const [pr,inv,cl,or]=await Promise.all([db.get("ss4:products"),db.get("ss4:inventory"),db.get("ss4:clients"),db.get("ss4:orders")]);
-    if(pr)setProducts(pr); if(inv)setInventory(inv); if(cl)setClients(cl); if(or)setOrders(or);
+    const [pr,inv,cl,or,sl]=await Promise.all([db.get("ss4:products"),db.get("ss4:inventory"),db.get("ss4:clients"),db.get("ss4:orders"),db.get("ss4:stocklog")]);
+    if(pr)setProducts(pr); if(inv)setInventory(inv); if(cl)setClients(cl); if(or)setOrders(or); if(sl)setStockLog(sl);
     setLoaded(true);
     setTimeout(()=>{saveCount.current=1;},300);
   })();},[]);
@@ -889,6 +942,7 @@ function App() {
   useEffect(()=>{if(saveCount.current>0)db.set("ss4:inventory",inventory);},[inventory]);
   useEffect(()=>{if(saveCount.current>0)db.set("ss4:clients",clients);},[clients]);
   useEffect(()=>{if(saveCount.current>0)db.set("ss4:orders",orders);},[orders]);
+  useEffect(()=>{if(saveCount.current>0)db.set("ss4:stocklog",stockLog);},[stockLog]);
 
   if(!loaded)return(
     <div style={{display:"flex",height:"100vh",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:"0.75rem",background:G.primaryLight}}>
@@ -898,7 +952,7 @@ function App() {
   );
   if(!user)return <Login onLogin={setUser}/>;
 
-  const props={user,products,setProducts,inventory,setInventory,clients,setClients,orders,setOrders,currentMonth,setCurrentMonth};
+  const props={user,products,setProducts,inventory,setInventory,clients,setClients,orders,setOrders,currentMonth,setCurrentMonth,stockLog,setStockLog};
   return (
     <div style={{fontFamily:"system-ui,-apple-system,sans-serif",background:G.bg,minHeight:"100vh",paddingBottom:72}}>
       {/* Header */}
