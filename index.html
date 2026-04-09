@@ -503,7 +503,7 @@ function Clientes({clients,setClients,orders}) {
 }
 
 // ── PEDIDOS ───────────────────────────────────────────────────
-function Pedidos({clients,orders,setOrders,inventory,setInventory,products,currentMonth}) {
+function Pedidos({clients,setClients,orders,setOrders,inventory,setInventory,products,currentMonth}) {
   const zI=()=>Object.fromEntries(products.filter(p=>p.active).map(p=>[p.id,0]));
   const [tab,setTab]=useState("nuevo"); const [cid,setCid]=useState(""); const [dd,setDd]=useState(today()); const [items,setItems]=useState(zI());
   const [showNewCl,setShowNewCl]=useState(false); const [newClName,setNewClName]=useState(""); const [newClPhone,setNewClPhone]=useState("");
